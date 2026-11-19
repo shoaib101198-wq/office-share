@@ -1,0 +1,62 @@
+{
+  "name": "office-share",
+  "productName": "Office Share",
+  "version": "1.0.0",
+  "description": "Auto-connected file sharing between office laptops on the same WiFi",
+  "main": "main.js",
+  "author": "HighSkyGo",
+  "license": "MIT",
+  "scripts": {
+    "start": "electron .",
+    "test": "node test/engine.test.js",
+    "dist:win": "electron-builder --win nsis portable",
+    "dist:mac": "electron-builder --mac dmg",
+    "dist:linux": "electron-builder --linux AppImage deb"
+  },
+  "build": {
+    "appId": "com.highskygo.officeshare",
+    "productName": "Office Share",
+    "files": [
+      "main.js",
+      "preload.js",
+      "src/**",
+      "renderer/**",
+      "assets/**"
+    ],
+    "directories": {
+      "output": "dist",
+      "buildResources": "build"
+    },
+    "win": {
+      "icon": "build/icon.ico",
+      "target": [
+        "nsis",
+        "portable"
+      ],
+      "signAndEditExecutable": true
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "include": "build/installer.nsh",
+      "artifactName": "OfficeShare-Setup-${version}.exe"
+    },
+    "portable": {
+      "artifactName": "OfficeShare-Portable-${version}.exe"
+    },
+    "mac": {
+      "icon": "build/icon.png",
+      "category": "public.app-category.productivity"
+    },
+    "linux": {
+      "icon": "build/icon.png",
+      "category": "Network"
+    }
+  },
+  "devDependencies": {
+    "electron": "^45.4.1",
+    "electron-builder": "^26.18.0"
+  }
+}

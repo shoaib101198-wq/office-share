@@ -1,0 +1,177 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self'; img-src 'self' data:;" />
+  <title>Office Share</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <!-- First-run setup -->
+  <section id="setup" class="setup hidden">
+    <div class="setup-card">
+      <div class="brand-lg"><span class="logo"></span>Office Share</div>
+      <p class="muted">Every office laptop on the same WiFi finds the others automatically. Set it up once.</p>
+      <label>Name of this laptop
+        <input id="setup-name" maxlength="40" placeholder="e.g. Ali – Accounts" />
+      </label>
+      <label>Office key <span class="muted small">(type the same key on every laptop)</span>
+        <input id="setup-key" type="password" maxlength="128" placeholder="e.g. highsky-office-2026" />
+      </label>
+      <label class="check"><input id="setup-show" type="checkbox" /> Show key</label>
+      <button id="setup-go" class="btn primary wide">Start sharing</button>
+      <p id="setup-err" class="err"></p>
+    </div>
+  </section>
+
+  <div id="app" class="app hidden">
+    <aside class="sidebar">
+      <div class="brand"><span class="logo"></span>Office Share</div>
+
+      <div class="me">
+        <div id="me-avatar" class="avatar"></div>
+        <div class="me-info">
+          <div id="me-name" class="me-name"></div>
+          <select id="me-status" class="status-select">
+            <option value="available">● Available</option>
+            <option value="busy">● Busy — no popups</option>
+            <option value="away">● Away</option>
+          </select>
+        </div>
+      </div>
+
+      <nav>
+        <button class="nav active" data-view="devices"><span class="ico ico-grid"></span>Devices <span id="nav-online" class="pill"></span></button>
+        <button class="nav" data-view="activity"><span class="ico ico-act"></span>Activity <span id="nav-active" class="pill hot hidden"></span></button>
+        <button class="nav" data-view="settings"><span class="ico ico-gear"></span>Settings</button>
+      </nav>
+
+      <div class="side-foot">
+        <button id="open-inbox" class="btn ghost wide">Open received files</button>
+        <div class="muted small" id="foot-info"></div>
+      </div>
+    </aside>
+
+    <main class="main">
+      <!-- DEVICES -->
+      <section id="view-devices" class="view">
+        <div id="pending-banner" class="banner hidden">
+          <div><strong id="pending-title"></strong><div class="muted small">Click a laptop below to send. Or click "Everyone".</div></div>
+          <button id="pending-cancel" class="btn ghost">Cancel</button>
+        </div>
+        <header class="view-head">
+          <div>
+            <h1>Online now</h1>
+            <div class="muted small">Drag files onto a laptop to send them. No pairing needed.</div>
+          </div>
+          <div class="head-actions">
+            <input id="search" class="search" placeholder="Search laptops…" />
+          </div>
+        </header>
+        <div id="foreign-warn" class="warn hidden"></div>
+        <div id="grid" class="grid"></div>
+        <div id="empty" class="empty hidden">
+          <div class="radar"><span></span><span></span><span></span></div>
+          <h2>Looking for other laptops…</h2>
+          <p class="muted">Install Office Share on the other office laptops. They show up here on their own.</p>
+          <ul class="checklist">
+            <li>Every laptop is on the <b>same WiFi / office network</b></li>
+            <li>Every laptop uses the <b>same office key</b> (fingerprint <b id="fp-empty"></b>)</li>
+            <li>On Windows, the WiFi is set to <b>Private network</b></li>
+            <li>When Windows Firewall asks, click <b>Allow access</b></li>
+          </ul>
+        </div>
+      </section>
+
+      <!-- ACTIVITY -->
+      <section id="view-activity" class="view hidden">
+        <header class="view-head">
+          <div><h1>Activity</h1><div class="muted small">Every file and message, sent and received.</div></div>
+          <div class="head-actions">
+            <div class="chips" id="act-filter">
+              <button class="chip active" data-f="all">All</button>
+              <button class="chip" data-f="in">Received</button>
+              <button class="chip" data-f="out">Sent</button>
+              <button class="chip" data-f="msg">Messages</button>
+            </div>
+            <button id="clear-history" class="btn ghost">Clear</button>
+          </div>
+        </header>
+        <div id="act-list" class="act-list"></div>
+      </section>
+
+      <!-- SETTINGS -->
+      <section id="view-settings" class="view hidden">
+        <header class="view-head"><div><h1>Settings</h1></div></header>
+        <div class="settings">
+          <div class="set-group">
+            <h3>This laptop</h3>
+            <div class="row"><div><b>Laptop name</b><div class="muted small">Shown to everyone in the office.</div></div>
+              <div class="row-ctl"><input id="set-name" maxlength="40" /><button id="set-name-save" class="btn">Save</button></div></div>
+            <div class="row"><div><b>Office key</b><div class="muted small">Only laptops with the same key can see you. Fingerprint: <b id="set-fp"></b></div></div>
+              <div class="row-ctl"><input id="set-key" type="password" placeholder="New office key" /><button id="set-key-save" class="btn">Change</button></div></div>
+            <div class="row"><div><b>Start with computer</b><div class="muted small">Runs quietly in the tray so files arrive any time.</div></div>
+              <label class="switch"><input type="checkbox" id="set-login" /><span></span></label></div>
+          </div>
+
+          <div class="set-group">
+            <h3>Receiving</h3>
+            <div class="row"><div><b>Save files to</b><div class="muted small" id="set-dir"></div></div>
+              <div class="row-ctl"><button id="set-dir-open" class="btn ghost">Open</button><button id="set-dir-pick" class="btn">Change</button></div></div>
+            <div class="row"><div><b>Incoming files</b><div class="muted small">Auto-accept from office laptops, or ask every time.</div></div>
+              <select id="set-accept" class="select"><option value="auto">Accept automatically</option><option value="ask">Ask me first</option></select></div>
+            <div class="row"><div><b>Folder per person</b><div class="muted small">Put each sender's files in their own subfolder.</div></div>
+              <label class="switch"><input type="checkbox" id="set-persender" /><span></span></label></div>
+          </div>
+
+          <div class="set-group">
+            <h3>Alerts</h3>
+            <div class="row"><div><b>Notifications</b><div class="muted small">Turned off automatically while you're Busy.</div></div>
+              <label class="switch"><input type="checkbox" id="set-notif" /><span></span></label></div>
+            <div class="row"><div><b>Sounds</b></div>
+              <label class="switch"><input type="checkbox" id="set-sound" /><span></span></label></div>
+          </div>
+
+          <div class="set-group">
+            <h3>About</h3>
+            <div class="row"><div><b>Version</b></div><div id="set-ver" class="muted"></div></div>
+            <div class="row"><div><b>This laptop's IP</b></div><div id="set-ip" class="muted"></div></div>
+            <div class="row"><div><b>Security</b></div><div class="muted small">AES-256-GCM encryption, keyed from the office key. Files never leave your network.</div></div>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <!-- Conversation drawer -->
+    <aside id="drawer" class="drawer hidden">
+      <div id="drawer-head" class="drawer-head"></div>
+      <div class="drawer-actions">
+        <button class="btn" id="d-files">Send files</button>
+        <button class="btn" id="d-folder">Send folder</button>
+        <button class="btn ghost" id="d-clip" title="Send the text on your clipboard">Clipboard</button>
+        <button class="btn ghost" id="d-buzz" title="Get their attention">Buzz</button>
+      </div>
+      <div id="timeline" class="timeline"></div>
+      <div class="composer">
+        <textarea id="composer" rows="2" placeholder="Type a message… (Enter to send, Shift+Enter for a new line)"></textarea>
+        <button id="composer-send" class="btn primary">Send</button>
+      </div>
+      <div id="drop-hint" class="drop-hint hidden">Drop to send</div>
+    </aside>
+  </div>
+
+  <!-- Incoming request -->
+  <div id="modal" class="modal hidden">
+    <div class="modal-card">
+      <div id="modal-body"></div>
+      <div class="modal-actions">
+        <button id="modal-no" class="btn ghost">Decline</button>
+        <button id="modal-yes" class="btn primary">Accept</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="toasts" class="toasts"></div>
+  <script src="app.js"></script>
+</body>
+</html>
