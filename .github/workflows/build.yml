@@ -1,19 +1,24 @@
-name: Build installers
+name: Build & publish installers
 on:
   push:
     tags: ['v*']
   workflow_dispatch:
+
+permissions:
+  contents: write
+
 jobs:
   build:
     strategy:
+      fail-fast: false
       matrix:
         include:
           - os: windows-latest
-            cmd: npm run dist:win
+            cmd: npx electron-builder --win nsis portable --x64 --publish never
           - os: macos-latest
-            cmd: npm run dist:mac
+            cmd: npx electron-builder --mac dmg --publish never
           - os: ubuntu-latest
-            cmd: npm run dist:linux
+            cmd: npx electron-builder --linux AppImage --publish never
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
@@ -31,4 +36,25 @@ jobs:
             dist/*.exe
             dist/*.dmg
             dist/*.AppImage
-            dist/*.deb
+          if-no-files-found: ignore
+
+  release:
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with: { path: out, merge-multiple: true }
+      - run: ls -la out
+      - uses: softprops/action-gh-release@v2
+        with:
+          name: Office Share ${{ github.ref_name }}
+          files: out/*
+          make_latest: true
+          body: |
+            ## Download
+            - **Windows:** `OfficeShare-Setup-*.exe` (recommended installer) or `OfficeShare-Portable-*.exe` (no install)
+            - **Mac:** `.dmg`  ·  **Linux:** `.AppImage`
+
+            Install on every office laptop and type the **same office key**. Laptops on the same WiFi find each other automatically.
+            Windows may show "unknown publisher": click **More info → Run anyway**.
