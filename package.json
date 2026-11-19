@@ -1,7 +1,7 @@
 {
   "name": "office-share",
   "productName": "Office Share",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Auto-connected file sharing between office laptops on the same WiFi",
   "main": "main.js",
   "author": "HighSkyGo",
@@ -11,7 +11,8 @@
     "test": "node test/engine.test.js",
     "dist:win": "electron-builder --win nsis portable",
     "dist:mac": "electron-builder --mac dmg",
-    "dist:linux": "electron-builder --linux AppImage deb"
+    "dist:linux": "electron-builder --linux AppImage deb",
+    "test:relay": "node test/relay.test.js"
   },
   "build": {
     "appId": "com.highskygo.officeshare",

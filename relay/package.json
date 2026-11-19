@@ -1,0 +1,13 @@
+{
+  "name": "office-share-relay",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Cloud relay for Office Share (Cloudflare Workers + D1 + R2)",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy"
+  },
+  "devDependencies": {
+    "wrangler": "^4.0.0"
+  }
+}

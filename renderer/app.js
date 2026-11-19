@@ -2,13 +2,13 @@
 /* Office Share — renderer */
 const $ = (s) => document.querySelector(s);
 const EVERYONE = '*';
-const TERMINAL = ['done', 'failed', 'rejected', 'cancelled'];
+const TERMINAL = ['done', 'failed', 'rejected', 'cancelled', 'queued'];
 
 const S = {
   self: null, settings: null, peers: [], foreignCount: 0,
   active: new Map(), history: [], selected: null, view: 'devices',
   pending: [], filter: 'all', search: '', unread: {}, asks: [],
-  addresses: [], version: '', platform: '',
+  addresses: [], version: '', platform: '', relay: { enabled: false },
 };
 
 /* ---------- utils ---------- */
@@ -54,7 +54,8 @@ const osName = (o) => ({ windows: 'Windows', mac: 'Mac', linux: 'Linux' }[o] || 
 const ext = (n) => { const m = /\.([a-z0-9]{1,5})$/i.exec(n || ''); return m ? m[1].toUpperCase() : 'FILE'; };
 const tsOf = (h) => h.ts || h.startedAt || 0;
 const peerById = (id) => S.peers.find((p) => p.id === id);
-const targetIds = (id) => (id === EVERYONE ? S.peers.map((p) => p.id) : [id]);
+const onlinePeers = () => S.peers.filter((p) => p.online);
+const targetIds = (id) => (id === EVERYONE ? onlinePeers().map((p) => p.id) : [id]);
 
 async function call(ch, payload) {
   const r = await window.api.call(ch, payload);
@@ -109,11 +110,12 @@ function renderSide() {
   $('#me-avatar').outerHTML = `<div id="me-avatar" class="avatar" style="background:${colorFor(me.id)}">${esc(initials(me.name))}<span class="dot ${S.settings.status}"></span></div>`;
   $('#me-name').textContent = me.name;
   $('#me-status').value = S.settings.status;
-  $('#nav-online').textContent = S.peers.length;
+  $('#nav-online').textContent = onlinePeers().length;
   const act = S.active.size;
   $('#nav-active').textContent = act;
   $('#nav-active').classList.toggle('hidden', !act);
-  $('#foot-info').innerHTML = `Office key <b>${esc(S.settings.teamFingerprint)}</b> · ${esc(S.addresses[0] || 'offline')}`;
+  const cloud = !S.relay.enabled ? '' : S.relay.connected ? ' · <span class="cloud-ok">☁ Cloud on</span>' : ' · <span class="cloud-bad">☁ Cloud offline</span>';
+  $('#foot-info').innerHTML = `Office key <b>${esc(S.settings.teamFingerprint)}</b> · ${esc(S.addresses[0] || 'offline')}${cloud}`;
 }
 
 function activeForPeer(id) {
@@ -125,31 +127,35 @@ function renderGrid() {
   const fav = new Set(S.settings.favorites || []);
   const peers = S.peers
     .filter((p) => !q || p.name.toLowerCase().includes(q) || p.user.toLowerCase().includes(q))
-    .sort((a, b) => (fav.has(b.id) - fav.has(a.id)) || a.name.localeCompare(b.name));
+    .sort((a, b) => (b.online - a.online) || (fav.has(b.id) - fav.has(a.id)) || a.name.localeCompare(b.name));
 
   const cards = [];
-  if (S.peers.length >= 2 && !q) {
+  const on = onlinePeers().length;
+  if (on >= 2 && !q) {
     cards.push(`<div class="card everyone ${S.selected === EVERYONE ? 'selected' : ''}" data-id="${EVERYONE}">
       ${avatarHtml(EVERYONE, 'Everyone')}
-      <div class="name">Everyone</div><div class="sub">All ${S.peers.length} laptops online</div></div>`);
+      <div class="name">Everyone</div><div class="sub">All ${on} laptops online</div></div>`);
   }
   for (const p of peers) {
     const act = activeForPeer(p.id);
     const total = act.reduce((a, t) => a + t.totalSize, 0);
     const done = act.reduce((a, t) => a + t.bytes, 0);
     const unread = S.unread[p.id] || 0;
-    cards.push(`<div class="card ${S.selected === p.id ? 'selected' : ''}" data-id="${esc(p.id)}">
+    const stat = !p.online ? `Offline · ${ago(p.lastSeen)}` : p.status === 'busy' ? 'Busy' : p.status === 'away' ? 'Away' : '';
+    cards.push(`<div class="card ${S.selected === p.id ? 'selected' : ''} ${p.online ? '' : 'offline'}" data-id="${esc(p.id)}" title="${p.remote ? (p.online ? 'Away from the office — sent through the cloud' : 'Offline — files wait in the cloud until they come online') : 'On this network'}">
       <button class="star ${fav.has(p.id) ? 'on' : ''}" data-star="${esc(p.id)}" title="Pin to top">★</button>
-      ${avatarHtml(p.id, p.name, p.status)}
+      ${p.remote ? '<span class="badge-remote">🌐</span>' : ''}
+      ${avatarHtml(p.id, p.name, p.online ? p.status : 'offline')}
       <div class="name">${esc(p.name)}</div>
-      <div class="sub">${esc(p.user || '')}${p.status !== 'available' ? ` · ${p.status === 'busy' ? 'Busy' : 'Away'}` : ''}</div>
+      <div class="sub">${esc(p.user || '')}${stat ? ` · ${stat}` : ''}</div>
       <span class="os">${esc(osName(p.os))}</span>
-      ${unread ? `<span class="pill hot" style="position:absolute;top:10px;left:10px">${unread}</span>` : ''}
+      ${unread ? `<span class="pill hot" style="position:absolute;top:10px;left:${p.remote ? 34 : 10}px">${unread}</span>` : ''}
       ${act.length ? `<div class="prog"><div class="bar"><i style="width:${total ? (done / total) * 100 : 0}%"></i></div><div class="sub" style="margin-top:4px">${act[0].direction === 'in' ? 'Receiving' : 'Sending'} · ${Math.floor(total ? (done / total) * 100 : 0)}%</div></div>` : ''}
     </div>`);
   }
   $('#grid').innerHTML = cards.join('');
   const none = S.peers.length === 0;
+  if (none && S.relay.enabled) $('#empty h2').textContent = 'Looking for other laptops (office WiFi + cloud)…';
   $('#empty').classList.toggle('hidden', !none);
   $('#fp-empty').textContent = S.settings.teamFingerprint;
   const fw = $('#foreign-warn');
@@ -171,10 +177,13 @@ function fileCard(t) {
     waiting: 'Waiting for them to accept…', asking: 'Waiting for your answer…', sending: `Sending · ${fmtSpeed(t.speed)} · ${eta(t)}`,
     receiving: `Receiving · ${fmtSpeed(t.speed)} · ${eta(t)}`, done: t.direction === 'in' ? 'Received' : 'Delivered',
     failed: `Failed — ${t.error || ''}`, rejected: 'Declined', cancelled: 'Cancelled',
+    uploading: `Uploading to cloud · ${fmtSpeed(t.speed)} · ${eta(t)}`,
+    queued: (peerById(t.peerId) || {}).online ? 'Uploaded — delivering…' : `In the cloud — delivers when ${t.peerName} comes online`,
   }[t.status] || t.status;
+  const viaTxt = t.via === 'relay' ? ' ☁' : '';
   const p = (t.savedPaths && t.savedPaths[0]) || (t.localPaths && t.localPaths[0]);
   const acts = [];
-  if (live) acts.push(`<button class="btn sm danger" data-cancel="${esc(t.id)}">Cancel</button>`);
+  if (live || t.status === 'queued') acts.push(`<button class="btn sm danger" data-cancel="${esc(t.id)}">Cancel</button>`);
   if (t.status === 'asking') acts.unshift(`<button class="btn sm" data-accept="${esc(t.id)}">Accept</button><button class="btn sm ghost" data-decline="${esc(t.id)}">Decline</button>`);
   if (t.status === 'done' && p) {
     if (t.direction === 'in' && t.fileCount === 1) acts.push(`<button class="btn sm" data-open="${esc(p)}">Open</button>`);
@@ -183,7 +192,7 @@ function fileCard(t) {
   if (['failed', 'cancelled', 'rejected'].includes(t.status) && t.direction === 'out' && t.localPaths && peerById(t.peerId)) {
     acts.push(`<button class="btn sm" data-retry="${esc(t.id)}">Try again</button>`);
   }
-  return { pct, live, statusText, acts: acts.join('') };
+  return { pct, live, statusText: statusText + viaTxt, acts: acts.join('') };
 }
 
 function renderDrawer() {
@@ -192,12 +201,16 @@ function renderDrawer() {
   const isAll = S.selected === EVERYONE;
   const p = isAll ? null : peerById(S.selected);
   d.classList.remove('hidden');
+  if (S._lastDrawerPeer !== S.selected) { S._lastDrawerPeer = S.selected; }
   const name = isAll ? 'Everyone' : p ? p.name : (lastKnownName(S.selected) || 'Offline laptop');
-  const sub = isAll ? `${S.peers.length} laptops online` : p ? `${p.status === 'available' ? 'Online' : p.status === 'busy' ? 'Busy' : 'Away'} · ${osName(p.os)} · ${p.address}` : 'Offline';
+  const sub = isAll ? `${onlinePeers().length} laptops online`
+    : !p ? 'Offline'
+    : !p.online ? `🌐 Offline · seen ${ago(p.lastSeen)} — files wait in the cloud`
+    : `${p.status === 'available' ? 'Online' : p.status === 'busy' ? 'Busy' : 'Away'} · ${osName(p.os)} · ${p.remote ? '🌐 via cloud' : p.address}`;
   $('#drawer-head').innerHTML = `${avatarHtml(S.selected, name, p ? p.status : '')}<div class="t"><b>${esc(name)}</b><span class="muted small">${esc(sub)}</span></div><button class="x" id="drawer-close" title="Close">×</button>`;
   const offline = !isAll && !p;
-  for (const id of ['#d-files', '#d-folder', '#d-clip', '#composer-send']) $(id).disabled = offline || (isAll && !S.peers.length);
-  $('#d-buzz').disabled = offline || isAll;
+  for (const id of ['#d-files', '#d-folder', '#d-clip', '#composer-send']) $(id).disabled = offline || (isAll && !onlinePeers().length);
+  $('#d-buzz').disabled = offline || isAll || (p && !p.online);
 
   let items = isAll
     ? S.history.filter((h) => h.direction === 'out').slice(0, 40)
@@ -267,6 +280,17 @@ function fillSettings() {
   $('#set-sound').checked = !!s.sounds;
   $('#set-ver').textContent = S.version;
   $('#set-ip').textContent = S.addresses.join(', ') || 'Not connected';
+  if (document.activeElement !== $('#set-relay')) $('#set-relay').value = s.relayUrl || '';
+  renderRelayStatus();
+}
+
+function renderRelayStatus() {
+  const r = S.relay || {};
+  const el = $('#relay-status');
+  if (!el) return;
+  if (!r.enabled) el.innerHTML = 'Off — only laptops on the same WiFi can share.';
+  else if (r.connected) el.innerHTML = '<span class="cloud-ok">● Connected</span> — laptops away from the office show with 🌐';
+  else el.innerHTML = `<span class="cloud-bad">● Not connected</span>${r.error ? ' — ' + esc(r.error) : ' — connecting…'}`;
 }
 
 /* ---------- state ---------- */
@@ -274,6 +298,7 @@ function applyState(st) {
   S.self = st.self; S.settings = st.settings; S.peers = st.peers; S.foreignCount = st.foreignCount;
   S.history = st.history || []; S.active = new Map((st.active || []).map((t) => [t.id, t]));
   S.pending = st.pending || []; S.addresses = st.addresses || []; S.version = st.version; S.platform = st.platform;
+  S.relay = st.relay || { enabled: false };
   if (!S.settings.configured) { $('#setup').classList.remove('hidden'); $('#app').classList.add('hidden'); $('#setup-name').value = S.self.name; return; }
   $('#setup').classList.add('hidden'); $('#app').classList.remove('hidden');
   if (S.view === 'settings') fillSettings();
@@ -307,7 +332,8 @@ async function sendPaths(id, paths) {
   const ids = targetIds(id);
   if (!ids.length) return toast('No one is online', 'bad');
   await call('send:paths', { peerIds: ids, paths });
-  toast(`Sending to ${ids.length === 1 ? (peerById(ids[0]) || {}).name : `${ids.length} laptops`}…`);
+  const one = ids.length === 1 ? peerById(ids[0]) : null;
+  toast(one && one.remote ? `Uploading for ${one.name} — ${one.online ? 'they’ll get it in a few seconds' : 'they’ll get it when they come online'}` : `Sending to ${one ? one.name : `${ids.length} laptops`}…`);
 }
 
 async function sendMessage() {
@@ -365,6 +391,7 @@ window.api.on(({ type, data }) => {
       document.body.classList.remove('shake'); void document.body.offsetWidth; document.body.classList.add('shake');
       toast(`🔔 ${data.name} buzzed you`);
       break;
+    case 'relay': S.relay = data; renderRelayStatus(); break;
     case 'pending': S.pending = data; setView('devices'); break;
     case 'select': select(data); break;
     case 'state': applyState(data); return;
@@ -480,6 +507,11 @@ $('#set-key-save').onclick = async () => {
   $('#set-key').value = '';
   fillSettings();
   toast('Office key changed. Use the same key on the other laptops.', 'ok');
+};
+$('#set-relay-save').onclick = async () => {
+  const v = $('#set-relay').value.trim();
+  await upd({ relayUrl: v });
+  toast(v ? 'Cloud relay saved — connecting…' : 'Cloud relay turned off', 'ok');
 };
 $('#set-login').onchange = (e) => upd({ startAtLogin: e.target.checked });
 $('#set-accept').onchange = (e) => upd({ acceptMode: e.target.value });

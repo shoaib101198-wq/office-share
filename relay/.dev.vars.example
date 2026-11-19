@@ -1,0 +1,3 @@
+# Optional: a password so only your laptops can use this relay.
+# Put the same value after ?key= in the relay link inside Office Share.
+RELAY_KEY=

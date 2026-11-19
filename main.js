@@ -168,7 +168,7 @@ function trayImage() {
 
 function updateTray() {
   if (!tray) return;
-  const peers = engine.peers();
+  const peers = engine.peers().filter((p) => p.online);
   const status = engine.settings.get('status');
   tray.setToolTip(`Office Share — ${peers.length} online`);
   const setStatus = (s) => { engine.updateSettings({ status: s }); send('state', fullState()); updateTray(); };
@@ -178,7 +178,7 @@ function updateTray() {
     {
       label: `Online now (${peers.length})`,
       submenu: peers.length
-        ? peers.map((p) => ({ label: `${p.name}${p.status !== 'available' ? ` (${p.status})` : ''}`, click: () => { showWindow(); send('select', p.id); } }))
+        ? peers.map((p) => ({ label: `${p.name}${p.remote ? ' 🌐' : ''}${p.status !== 'available' ? ` (${p.status})` : ''}`, click: () => { showWindow(); send('select', p.id); } }))
         : [{ label: 'No one else yet', enabled: false }],
     },
     {
@@ -239,6 +239,7 @@ async function boot() {
       if (t.savedPaths && t.savedPaths[0]) shell.showItemInFolder(t.savedPaths[0]);
     });
   });
+  engine.on('relay', (r) => send('relay', r));
   engine.on('warn', (e) => console.warn('engine', e.message));
 
   registerIpc();
@@ -259,7 +260,7 @@ async function boot() {
   installSendTo();
 
   // Re-announce right after sleep or WiFi change so we show up instantly.
-  powerMonitor.on('resume', () => setTimeout(() => engine.discovery && engine.discovery.announce('hello'), 2000));
+  powerMonitor.on('resume', () => setTimeout(() => { engine.discovery && engine.discovery.announce('hello'); engine.pokeRelay(); }, 2000));
   powerMonitor.on('unlock-screen', () => engine.discovery && engine.discovery.announce('hello'));
 
   app.on('activate', showWindow);

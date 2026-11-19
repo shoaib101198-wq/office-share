@@ -61,8 +61,8 @@
         </div>
         <header class="view-head">
           <div>
-            <h1>Online now</h1>
-            <div class="muted small">Drag files onto a laptop to send them. No pairing needed.</div>
+            <h1>Laptops</h1>
+            <div class="muted small">Drag files onto a laptop to send. 🌐 = away from the office (sent through the cloud).</div>
           </div>
           <div class="head-actions">
             <input id="search" class="search" placeholder="Search laptops…" />
@@ -122,6 +122,13 @@
               <select id="set-accept" class="select"><option value="auto">Accept automatically</option><option value="ask">Ask me first</option></select></div>
             <div class="row"><div><b>Folder per person</b><div class="muted small">Put each sender's files in their own subfolder.</div></div>
               <label class="switch"><input type="checkbox" id="set-persender" /><span></span></label></div>
+          </div>
+
+          <div class="set-group">
+            <h3>Send from anywhere (cloud)</h3>
+            <div class="row"><div><b>Cloud relay link</b><div class="muted small">Paste the link from your Cloudflare relay so laptops can share when they're <b>not on the same WiFi</b>. Use the same link on every laptop. Files are encrypted with the office key before upload.</div></div>
+              <div class="row-ctl"><input id="set-relay" placeholder="https://office-share-relay.….workers.dev/?key=…" spellcheck="false" /><button id="set-relay-save" class="btn">Save</button></div></div>
+            <div class="row"><div><b>Status</b></div><div id="relay-status" class="muted small"></div></div>
           </div>
 
           <div class="set-group">

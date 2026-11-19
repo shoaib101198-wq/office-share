@@ -188,3 +188,11 @@ nav { display: flex; flex-direction: column; gap: 4px; }
 @keyframes shake { 10%, 90% { transform: translateX(-2px); } 20%, 80% { transform: translateX(4px); } 30%, 50%, 70% { transform: translateX(-8px); } 40%, 60% { transform: translateX(8px); } }
 ::-webkit-scrollbar { width: 10px; }
 ::-webkit-scrollbar-thumb { background: var(--line); border-radius: 99px; border: 2px solid transparent; background-clip: padding-box; }
+
+.card.offline { opacity: .55; }
+.card.offline:hover { opacity: .85; }
+.badge-remote { position: absolute; top: 10px; left: 12px; font-size: 13px; }
+.dot.offline { background: var(--away) !important; opacity: .6; }
+.row-ctl input#set-relay { width: 320px; }
+.cloud-ok { color: var(--ok); }
+.cloud-bad { color: var(--bad); }
